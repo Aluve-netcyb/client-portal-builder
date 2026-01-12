@@ -1,6 +1,5 @@
 import { useParams, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProjectById, getProjectDeliverables } from '@/data/mockData';
 import { Header } from '@/components/Header';
 import { DeliverableItem } from '@/components/DeliverableItem';
 import { Button } from '@/components/ui/button';
@@ -11,18 +10,25 @@ import {
   Calendar, 
   Clock, 
   FileText,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 
-const statusStyles = {
+type Project = Tables<'projects'>;
+type Deliverable = Tables<'deliverables'>;
+
+const statusStyles: Record<string, string> = {
   'Not Started': 'bg-muted text-muted-foreground',
   'In Progress': 'bg-warning/15 text-warning border-warning/30',
   'Behind Schedule': 'bg-destructive/15 text-destructive border-destructive/30',
   'Completed': 'bg-success/15 text-success border-success/30',
 };
 
-const phaseStyles = {
+const phaseStyles: Record<string, string> = {
   'Planning': 'bg-secondary text-secondary-foreground',
   'Design': 'bg-accent/15 text-accent',
   'Development': 'bg-primary/10 text-primary',
@@ -32,19 +38,65 @@ const phaseStyles = {
 
 const ProjectDetails = () => {
   const { projectId } = useParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, profile } = useAuth();
+
+  const { data: project, isLoading: projectLoading } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching project:', error);
+        throw error;
+      }
+
+      return data as Project | null;
+    },
+    enabled: !!projectId && !!profile,
+  });
+
+  const { data: deliverables = [] } = useQuery({
+    queryKey: ['deliverables', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      
+      const { data, error } = await supabase
+        .from('deliverables')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching deliverables:', error);
+        throw error;
+      }
+
+      return data as Deliverable[];
+    },
+    enabled: !!projectId && !!profile,
+  });
+
+  if (authLoading || projectLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
-  const project = getProjectById(projectId || '');
-  
   if (!project) {
     return <Navigate to="/dashboard" replace />;
   }
-
-  const deliverables = getProjectDeliverables(project.id);
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', { 
@@ -56,7 +108,7 @@ const ProjectDetails = () => {
   };
 
   const phases = ['Planning', 'Design', 'Development', 'Review', 'Completed'];
-  const currentPhaseIndex = phases.indexOf(project.currentPhase);
+  const currentPhaseIndex = phases.indexOf(project.current_phase);
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,8 +138,8 @@ const ProjectDetails = () => {
               <Badge variant="outline" className={cn("text-sm font-medium", statusStyles[project.status])}>
                 {project.status}
               </Badge>
-              <Badge variant="secondary" className={cn("text-sm font-medium", phaseStyles[project.currentPhase])}>
-                {project.currentPhase}
+              <Badge variant="secondary" className={cn("text-sm font-medium", phaseStyles[project.current_phase])}>
+                {project.current_phase}
               </Badge>
             </div>
           </div>
@@ -171,7 +223,7 @@ const ProjectDetails = () => {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Start Date</p>
-                    <p className="font-medium text-foreground">{formatDate(project.startDate)}</p>
+                    <p className="font-medium text-foreground">{formatDate(project.start_date)}</p>
                   </div>
                 </div>
                 
@@ -181,7 +233,7 @@ const ProjectDetails = () => {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Due Date</p>
-                    <p className="font-medium text-foreground">{formatDate(project.dueDate)}</p>
+                    <p className="font-medium text-foreground">{formatDate(project.due_date)}</p>
                   </div>
                 </div>
               </div>

@@ -1,24 +1,57 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { getClientProjects } from '@/data/mockData';
 import { Header } from '@/components/Header';
 import { ProjectCard } from '@/components/ProjectCard';
 import { Navigate } from 'react-router-dom';
-import { FolderOpen, TrendingUp, Clock, CheckCircle } from 'lucide-react';
+import { FolderOpen, TrendingUp, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
+
+type Project = Tables<'projects'>;
 
 const Dashboard = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { profile, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  if (!isAuthenticated || !user) {
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects', profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('client_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+
+      return data as Project[];
+    },
+    enabled: !!profile?.id,
+  });
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
-  const projects = getClientProjects(user.id);
-  
   const stats = {
     total: projects.length,
     inProgress: projects.filter(p => p.status === 'In Progress').length,
     completed: projects.filter(p => p.status === 'Completed').length,
-    avgProgress: Math.round(projects.reduce((acc, p) => acc + p.progress, 0) / projects.length) || 0,
+    avgProgress: projects.length > 0 
+      ? Math.round(projects.reduce((acc, p) => acc + p.progress, 0) / projects.length) 
+      : 0,
   };
 
   const statCards = [
@@ -36,10 +69,10 @@ const Dashboard = () => {
         {/* Welcome Section */}
         <div className="mb-8 animate-fade-in">
           <h1 className="font-display text-3xl font-bold text-foreground md:text-4xl">
-            Welcome back, {user.contactName.split(' ')[0]}
+            Welcome back, {profile?.contact_name?.split(' ')[0] || 'Client'}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Here's an overview of your projects at {user.companyName}
+            Here's an overview of your projects at {profile?.company_name || 'your company'}
           </p>
         </div>
 
@@ -71,7 +104,11 @@ const Dashboard = () => {
             <span className="text-sm text-muted-foreground">{projects.length} projects</span>
           </div>
 
-          {projects.length > 0 ? (
+          {projectsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : projects.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {projects.map((project, index) => (
                 <ProjectCard key={project.id} project={project} index={index} />

@@ -1,22 +1,24 @@
-import { Deliverable } from '@/data/mockData';
+import { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, Image, File, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
+type Deliverable = Tables<'deliverables'>;
+
 interface DeliverableItemProps {
   deliverable: Deliverable;
   index: number;
 }
 
-const approvalStyles = {
+const approvalStyles: Record<string, string> = {
   'Pending': 'bg-warning/15 text-warning border-warning/30',
   'Approved': 'bg-success/15 text-success border-success/30',
   'Needs Revision': 'bg-destructive/15 text-destructive border-destructive/30',
 };
 
-const fileIcons = {
+const fileIcons: Record<string, typeof File> = {
   'Invoice': FileText,
   'Design Proof': Image,
   'Report': FileSpreadsheet,
@@ -26,13 +28,18 @@ const fileIcons = {
 
 export function DeliverableItem({ deliverable, index }: DeliverableItemProps) {
   const { toast } = useToast();
-  const FileIcon = fileIcons[deliverable.fileType] || File;
+  const FileIcon = fileIcons[deliverable.file_type] || File;
 
   const handleDownload = () => {
-    toast({
-      title: 'Download started',
-      description: `Downloading ${deliverable.fileName}...`,
-    });
+    if (deliverable.file_url) {
+      window.open(deliverable.file_url, '_blank');
+    } else {
+      toast({
+        title: 'No file available',
+        description: 'This deliverable does not have a file attached.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const formatDate = (date: string) => {
@@ -58,13 +65,17 @@ export function DeliverableItem({ deliverable, index }: DeliverableItemProps) {
         </div>
         
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground truncate">{deliverable.fileName}</p>
+          <p className="font-medium text-foreground truncate">{deliverable.file_name}</p>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-            <span>{deliverable.fileType}</span>
+            <span>{deliverable.file_type}</span>
+            {deliverable.file_size && (
+              <>
+                <span>•</span>
+                <span>{deliverable.file_size}</span>
+              </>
+            )}
             <span>•</span>
-            <span>{deliverable.fileSize}</span>
-            <span>•</span>
-            <span>{formatDate(deliverable.uploadDate)}</span>
+            <span>{formatDate(deliverable.created_at)}</span>
           </div>
         </div>
       </div>
@@ -72,9 +83,9 @@ export function DeliverableItem({ deliverable, index }: DeliverableItemProps) {
       <div className="flex items-center gap-3 ml-4">
         <Badge 
           variant="outline" 
-          className={cn("text-xs font-medium hidden sm:inline-flex", approvalStyles[deliverable.approvalStatus])}
+          className={cn("text-xs font-medium hidden sm:inline-flex", approvalStyles[deliverable.approval_status])}
         >
-          {deliverable.approvalStatus}
+          {deliverable.approval_status}
         </Badge>
         
         <Button 

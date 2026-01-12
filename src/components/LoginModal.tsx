@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, User, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface LoginModalProps {
@@ -14,13 +14,24 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ open, onOpenChange }: LoginModalProps) {
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [contactName, setContactName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setCompanyName('');
+    setContactName('');
+    setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,16 +39,30 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
-        toast({
-          title: 'Welcome back!',
-          description: 'You have successfully logged in.',
-        });
-        onOpenChange(false);
-        navigate('/dashboard');
+      if (isSignUp) {
+        const result = await signup(email, password, companyName, contactName);
+        if (result.success) {
+          toast({
+            title: 'Account created!',
+            description: 'You can now log in to your portal.',
+          });
+          setIsSignUp(false);
+          resetForm();
+        } else {
+          setError(result.error || 'Failed to create account');
+        }
       } else {
-        setError('Invalid email or password. Try: john@acmecorp.com');
+        const result = await login(email, password);
+        if (result.success) {
+          toast({
+            title: 'Welcome back!',
+            description: 'You have successfully logged in.',
+          });
+          onOpenChange(false);
+          navigate('/dashboard');
+        } else {
+          setError(result.error || 'Invalid email or password');
+        }
       }
     } catch {
       setError('An error occurred. Please try again.');
@@ -46,13 +71,22 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
     }
   };
 
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setError('');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader className="text-center">
-          <DialogTitle className="font-display text-2xl">Welcome Back</DialogTitle>
+          <DialogTitle className="font-display text-2xl">
+            {isSignUp ? 'Create Account' : 'Welcome Back'}
+          </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Sign in to access your project portal
+            {isSignUp 
+              ? 'Sign up to access your project portal' 
+              : 'Sign in to access your project portal'}
           </DialogDescription>
         </DialogHeader>
         
@@ -62,6 +96,42 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
               <AlertCircle className="h-4 w-4 shrink-0" />
               {error}
             </div>
+          )}
+
+          {isSignUp && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="contactName" className="text-foreground">Your Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="contactName"
+                    type="text"
+                    placeholder="John Smith"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    className="pl-10 bg-background border-border"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="companyName" className="text-foreground">Company Name</Label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="companyName"
+                    type="text"
+                    placeholder="Acme Corporation"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="pl-10 bg-background border-border"
+                    required
+                  />
+                </div>
+              </div>
+            </>
           )}
           
           <div className="space-y-2">
@@ -92,6 +162,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10 bg-background border-border"
                 required
+                minLength={6}
               />
             </div>
           </div>
@@ -106,15 +177,22 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Signing in...
+                {isSignUp ? 'Creating account...' : 'Signing in...'}
               </>
             ) : (
-              'Sign In'
+              isSignUp ? 'Create Account' : 'Sign In'
             )}
           </Button>
 
-          <p className="text-center text-xs text-muted-foreground pt-2">
-            Demo: use <span className="font-medium text-foreground">john@acmecorp.com</span> with any password
+          <p className="text-center text-sm text-muted-foreground pt-2">
+            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="font-medium text-accent hover:underline"
+            >
+              {isSignUp ? 'Sign in' : 'Sign up'}
+            </button>
           </p>
         </form>
       </DialogContent>

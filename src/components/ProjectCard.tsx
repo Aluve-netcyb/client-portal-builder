@@ -1,24 +1,26 @@
-import { Project } from '@/data/mockData';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, Clock, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Tables } from '@/integrations/supabase/types';
+
+type Project = Tables<'projects'>;
 
 interface ProjectCardProps {
   project: Project;
   index: number;
 }
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   'Not Started': 'bg-muted text-muted-foreground',
   'In Progress': 'bg-warning/15 text-warning border-warning/30',
   'Behind Schedule': 'bg-destructive/15 text-destructive border-destructive/30',
   'Completed': 'bg-success/15 text-success border-success/30',
 };
 
-const phaseStyles = {
+const phaseStyles: Record<string, string> = {
   'Planning': 'bg-secondary text-secondary-foreground',
   'Design': 'bg-accent/15 text-accent',
   'Development': 'bg-primary/10 text-primary',
@@ -51,7 +53,7 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
                 {project.name}
               </h3>
               <p className="text-sm text-muted-foreground line-clamp-2">
-                {project.description}
+                {project.description || 'No description available'}
               </p>
             </div>
             <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all shrink-0" />
@@ -63,8 +65,8 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
             <Badge variant="outline" className={cn("text-xs font-medium", statusStyles[project.status])}>
               {project.status}
             </Badge>
-            <Badge variant="secondary" className={cn("text-xs font-medium", phaseStyles[project.currentPhase])}>
-              {project.currentPhase}
+            <Badge variant="secondary" className={cn("text-xs font-medium", phaseStyles[project.current_phase])}>
+              {project.current_phase}
             </Badge>
           </div>
 
@@ -79,11 +81,11 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
           <div className="flex items-center justify-between pt-2 border-t border-border text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
-              <span>Started {formatDate(project.startDate)}</span>
+              <span>Started {formatDate(project.start_date)}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
-              <span>Due {formatDate(project.dueDate)}</span>
+              <span>Due {formatDate(project.due_date)}</span>
             </div>
           </div>
         </CardContent>

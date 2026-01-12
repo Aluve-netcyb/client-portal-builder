@@ -1,15 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, LayoutDashboard, FolderOpen } from 'lucide-react';
+import { LogOut, LayoutDashboard, FolderOpen, Loader2 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export function Header() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { profile, isAuthenticated, isLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -39,11 +39,13 @@ export function Header() {
         )}
 
         <div className="flex items-center gap-4">
-          {isAuthenticated ? (
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : isAuthenticated ? (
             <>
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-foreground">{user?.contactName}</p>
-                <p className="text-xs text-muted-foreground">{user?.companyName}</p>
+                <p className="text-sm font-medium text-foreground">{profile?.contact_name}</p>
+                <p className="text-xs text-muted-foreground">{profile?.company_name}</p>
               </div>
               <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
                 <LogOut className="h-4 w-4" />
